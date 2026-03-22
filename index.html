@@ -1914,6 +1914,12 @@ window.onload=async()=>{
   // Load real data from Supabase in background (parallel)
   loadProdsFromDB();
   loadOrds();
+  // Admin session restore — refresh করলে যেন session থাকে
+  const savedRole=localStorage.getItem('as_adm_role');
+  const savedTab=localStorage.getItem('as_adm_tab')||'dash';
+  if(savedRole){
+    applyAdminSession(savedRole,savedTab,false);
+  }
 };
 
 function initEJS(){
@@ -2662,21 +2668,36 @@ function verifyAdmin(){
   if(o!==genOTP){toast('Incorrect OTP','err');return;}
   if(pw!=='myWeb$688'){toast('Incorrect password','err');return;}
   admRole=document.getElementById('aRole')?.value||'super';
+  // Session localStorage এ save করো
+  localStorage.setItem('as_adm_role',admRole);
+  localStorage.setItem('as_adm_tab','dash');
+  applyAdminSession(admRole,'dash',true);
+}
+function applyAdminSession(role,tab,isNew){
+  admRole=role;
   const labels={super:'Super Admin',manager:'Manager',support:'Support Staff'};
-  const rt=document.getElementById('roleTag');if(rt)rt.textContent=labels[admRole];
+  const rt=document.getElementById('roleTag');if(rt)rt.textContent=labels[role]||role;
   const logNav=document.getElementById('anav-logs');
-  if(logNav)logNav.style.display=admRole==='super'?'flex':'none';
-  if(admRole==='support'){
+  if(logNav)logNav.style.display=role==='super'?'flex':'none';
+  if(role==='support'){
     const pNav=document.getElementById('anav-prods');
     if(pNav){pNav.style.opacity='.4';pNav.style.pointerEvents='none';}
   }
   document.getElementById('admpanel').style.display='block';
   document.getElementById('mainshop').style.display='none';
-  addLog('Signed in as '+admRole);
-  loadAdm();loadCustomCats();toast('Welcome, '+labels[admRole]+'!');
+  if(isNew){
+    addLog('Signed in as '+role);
+    loadAdm();loadCustomCats();toast('Welcome, '+labels[role]+'!');
+  }else{
+    loadAdm();loadCustomCats();
+    // Restore active tab
+    setTimeout(()=>aTab(tab,document.getElementById('anav-'+tab)),200);
+  }
 }
 function admOut(){
   addLog('Signed out');
+  localStorage.removeItem('as_adm_role');
+  localStorage.removeItem('as_adm_tab');
   document.getElementById('admpanel').style.display='none';
   document.getElementById('mainshop').style.display='block';
   showPage('home');toast('Signed out');
@@ -2712,6 +2733,8 @@ function closeAdmSidebar(){
    ADMIN TABS
 ════════════════════════════════ */
 function aTab(tabId,el){
+  // Active tab save করো
+  if(admRole)localStorage.setItem('as_adm_tab',tabId);
   // Hide all tab panels
   document.querySelectorAll('[id^="at-"]').forEach(t=>t.style.display='none');
   // Remove on from all nav items
